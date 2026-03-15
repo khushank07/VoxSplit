@@ -1,7 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-
 export interface TranscriptSegment {
   start: number;
   end: number;
@@ -10,6 +8,12 @@ export interface TranscriptSegment {
 }
 
 export async function transcribeAudio(fileData: string, mimeType: string): Promise<TranscriptSegment[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error("GEMINI_API_KEY is not defined");
+    return [];
+  }
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-3-flash-preview";
   
   const prompt = `

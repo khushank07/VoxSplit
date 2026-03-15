@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -36,6 +35,10 @@ const upload = multer({
 });
 
 // API Routes
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", mode: process.env.NODE_ENV || "development" });
+});
+
 app.post("/api/upload", upload.single("file"), (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -104,23 +107,33 @@ app.post("/api/trim-speaker", async (req, res) => {
 app.use("/temp", express.static(tempDir));
 
 // Vite middleware for development
-if (process.env.NODE_ENV !== "production") {
+const distPath = path.join(process.cwd(), "dist");
+
+if (process.env.NODE_ENV !== "production" && !isVercel) {
+  console.log("Starting in Development mode with Vite middleware...");
+  const { createServer: createViteServer } = await import("vite");
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: "spa",
   });
   app.use(vite.middlewares);
+
+  app.get("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      let template = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf-8");
+      template = await vite.transformIndexHtml(url, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(template);
+    } catch (e) {
+      vite.ssrFixStacktrace(e as Error);
+      next(e);
+    }
+  });
 } else {
-  // Production static serving
-  const distPath = path.join(process.cwd(), "dist");
+  console.log("Starting in Production mode serving static files from:", distPath);
   app.use(express.static(distPath));
   app.get("*", (req, res) => {
-    const indexPath = path.join(distPath, "index.html");
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.status(404).send("Frontend build not found. Please run 'npm run build'.");
-    }
+    res.sendFile(path.join(distPath, "index.html"));
   });
 }
 
