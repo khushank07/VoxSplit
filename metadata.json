@@ -1,0 +1,5 @@
+{
+  "name": "VoxSplit AI",
+  "description": "AI-powered audio/video transcription, speaker diarization, and automated speaker-specific audio trimming.",
+  "requestFramePermissions": []
+}
